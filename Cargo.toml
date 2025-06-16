@@ -1,0 +1,27 @@
+[package]
+name = "seb-ai"
+version = "0.1.0"
+edition = "2024"
+
+[lints.rust]
+unsafe_code = "forbid"
+unused = "allow"       #for early development
+
+[dependencies]
+# -- Async
+tokio = { version = "1", features = ["full"] }
+# --AI
+async-openai = "0.28.3"
+# --Deserialize
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# --CLI
+dialoguer = "0.11"
+console = "0.15"
+textwrap = "0.16"
+# --Files
+walkdir = "2"
+globset = "0.4"
+#--Others
+derive_more = { version = "2.0.1", features = ["from", "display", "deref"] }
