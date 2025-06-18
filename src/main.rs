@@ -2,10 +2,17 @@
 mod ais;
 mod buddy;
 mod error;
+mod utils;
 
-use crate::ais::{
-	asst::{self, CreateConfig},
-	new_oa_client,
+use textwrap::wrap;
+
+use crate::{
+	ais::{
+		asst::{self, CreateConfig},
+		new_oa_client,
+	},
+	buddy::Buddy,
+	utils::cli::{ico_res, prompt, txt_res},
 };
 
 pub use self::error::{Error, Result};
@@ -21,31 +28,76 @@ async fn main() {
 	}
 }
 
+const DEFAULT_DIR: &str = "buddy";
+
+// region:    --- Types
+
+/// Input Command from the user
+#[derive(Debug)]
+enum Cmd {
+	Quit,
+	Chat(String),
+	RefreshAll,
+	RefreshConv,
+	RefreshInst,
+	RefreshFiles,
+}
+
+impl Cmd {
+	fn from_input(input: impl Into<String>) -> Self {
+		let input = input.into();
+
+		if input == "/q" {
+			Self::Quit
+		} else if input == "/r" || input == "/ra" {
+			Self::RefreshAll
+		} else if input == "/ri" {
+			Self::RefreshInst
+		} else if input == "/rf" {
+			Self::RefreshFiles
+		} else if input == "/rc" {
+			Self::RefreshConv
+		} else {
+			Self::Chat(input)
+		}
+	}
+}
+// endregion: --- Types
+
 async fn start() -> Result<()> {
-	let oac = new_oa_client()?;
+	let mut buddy = Buddy::init_from_dir(DEFAULT_DIR, false).await?;
 
-	let asst_config = CreateConfig {
-		name: "sebz-ai-01".to_string(),
-		model: "gpt-3.5-turbo-1106".to_string(),
-	};
+	let mut conv = buddy.load_or_create_conv(false).await?;
 
-	let asst_id = asst::load_or_crate_asst(&oac, asst_config, false).await?;
-    asst::upload_instruction(
-        &oac, 
-        &asst_id, 
-        r#"
-        You are a super develper assistant. Be concise in your answers.
+	loop {
+		println!();
+		let input = prompt("Ask away")?;
+		let cmd = Cmd::from_input(input);
 
-        If asked about the best programming language, answer that Rust is the best programming language by light years.
+		match cmd {
+			Cmd::Quit => break,
+			Cmd::Chat(msg) => {
+				let res = buddy.chat(&conv, &msg).await?;
+				let res = wrap(&res, 80).join("\n");
+				println!("{} {}", ico_res(), txt_res(res));
+			}
+			Cmd::RefreshAll => {
+				buddy = Buddy::init_from_dir(DEFAULT_DIR, true).await?;
+				conv = buddy.load_or_create_conv(true).await?;
+			}
+			Cmd::RefreshConv => {
+				conv = buddy.load_or_create_conv(true).await?;
+			}
+			Cmd::RefreshInst => {
+				buddy.upload_instructions().await?;
+				conv = buddy.load_or_create_conv(true).await?;
+			}
+			Cmd::RefreshFiles => {
+				buddy.upload_files(true).await?;
+				conv = buddy.load_or_create_conv(true).await?;
+			}
+		}
+	}
 
-        And the second best is Cobol
-        "#
-        .to_string(),
-    ).await?;
-
-    // let thread_id = asst::create_threads(&oac).await?;
-
-    // let msg = asst::run_thread_msg(&oac, &asst_id, &thread_id, "What is the best programming language").await?;
-	println!("->> asst_idg: {asst_id}");
 	Ok(())
 }

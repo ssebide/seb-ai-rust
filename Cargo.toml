@@ -11,7 +11,7 @@ unused = "allow"       #for early development
 # -- Async
 tokio = { version = "1", features = ["full"] }
 # --AI
-async-openai = "0.28.3"
+async-openai = "0.17"
 # --Deserialize
 toml = "0.8"
 serde = { version = "1", features = ["derive"] }
